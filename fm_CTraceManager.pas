@@ -25,7 +25,6 @@ type
     TreeViewItem5: TTreeViewItem;
     TreeViewItem6: TTreeViewItem;
     TreeViewItem7: TTreeViewItem;
-    ImageList1: TImageList;
     TreeViewItem8: TTreeViewItem;
     Timer_Idle: TTimer;
     ActionList1: TActionList;
@@ -61,10 +60,11 @@ type
     lbl_port: TLabel;
     nmbrbx_port: TNumberBox;
     lbl_defPort: TLabel;
+    ImageList1: TImageList;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure IdUDPServer1UDPRead(AThread: TIdUDPListenerThread;
-      const AData: TIdBytes; ABinding: TIdSocketHandle);
+    procedure IdUDPServer1UDPRead(AThread: TIdUDPListenerThread; const AData:
+      TIdBytes; ABinding: TIdSocketHandle);
     procedure Timer1Timer(Sender: TObject);
     procedure Timer_IdleTimer(Sender: TObject);
     procedure cb_OnlyJSClick(Sender: TObject);
@@ -78,35 +78,38 @@ type
     procedure actSearchExecute(Sender: TObject);
     procedure tbcDirectChange(Sender: TObject);
     procedure nmbrbx_portExit(Sender: TObject);
+    function CheckParentItemFromTraceId(ATrView: TTreeView; aTraceId: string): Boolean;
+    function GetLastChild(Item: TTreeViewItem): TTreeViewItem;
   private
     { Private declarations }
-    FLastItem:TTreeViewItem;
-    F_FindItemIndex:Integer;
+    FLastItem: TTreeViewItem;
+    F_FindItemIndex: Integer;
     procedure FillComboBox;
-    function SetClientPort(aPort:integer):Boolean;
+    function SetClientPort(aPort: integer): Boolean;
   public
     { Public declarations }
-    LTList:TThreadList;
+    LTList: TThreadList;
     /// <summary>
     ///     тек. индекс (прочитанный) для списка
     /// </summary>
-    LT_ApplyIndex:integer;
+    LT_ApplyIndex: integer;
     ///
-    function AddCTItem(ATrView:TTreeView; const AItem:TCodeTraceItem):TTreeViewItem;
+    function AddCTItem(ATrView: TTreeView; const AItem: TCodeTraceItem): TTreeViewItem;
     ///
   end;
 
 var
   CTrForm: TCTrForm;
 
-  const def_portNum=25678;
+const
+  def_portNum = 25678;
 
 implementation
 
 {$R *.fmx}
 
-uses Rtti,FMX.Platform, FMX.DialogService,
-     wAppEnviron;
+uses
+  Rtti, FMX.Platform, FMX.DialogService, wAppEnviron;
 
 ///  Clipboard -- from Inet
 function TryGetClipboardService(out _clp: IFMXClipboardService): boolean;
@@ -130,7 +133,8 @@ var
   Value: TValue;
   s: string;
 begin
-  if TryGetClipboardService(clp) then begin
+  if TryGetClipboardService(clp) then
+  begin
     Value := clp.GetClipboard;
     if not Value.TryAsType(_s) then
       _s := '';
@@ -139,20 +143,17 @@ end;
 ///////////////////////////////////////////
 ///
 
-
 type
-  TwCodeTraceViewItem=class(TTreeViewItem)
-   private
-    FItem:TCodeTraceItem;
-   protected
-   public
-    constructor Create(AOwner: TComponent; ATreeView:TTreeView; ALastItem:TTreeViewItem; const AData:TCodeTraceItem);
+  TwCodeTraceViewItem = class(TTreeViewItem)
+  private
+    FItem: TCodeTraceItem;
+  protected
+  public
+    constructor Create(AOwner: TComponent; ATreeView: TTreeView; ALastItem:
+      TTreeViewItem; const AData: TCodeTraceItem);
     destructor Destroy; override;
-    property DataItem:TCodeTraceItem read FItem;
+    property DataItem: TCodeTraceItem read FItem;
   end;
-
-
-
 
 procedure TCTrForm.actClearExecute(Sender: TObject);
 begin
@@ -162,66 +163,67 @@ end;
 
 procedure TCTrForm.actCopyDataExecute(Sender: TObject);
 begin
- if (Assigned(tv_Trace.Selected)) and (tv_Trace.Selected is TwCodeTraceViewItem) then
-   begin
+  if (Assigned(tv_Trace.Selected)) and (tv_Trace.Selected is TwCodeTraceViewItem) then
+  begin
     StringToClipboard(TwCodeTraceViewItem(tv_Trace.Selected).DataItem.GetCommandParams);
-   end;
+  end;
 end;
 
 procedure TCTrForm.actCopyExecute(Sender: TObject);
 begin
-   if (Assigned(tv_Trace.Selected)) and (tv_Trace.Selected is TwCodeTraceViewItem) then
-   begin
+  if (Assigned(tv_Trace.Selected)) and (tv_Trace.Selected is TwCodeTraceViewItem) then
+  begin
     StringToClipboard(TwCodeTraceViewItem(tv_Trace.Selected).DataItem.MessData);
-   end;
+  end;
 end;
 
 procedure TCTrForm.actHTestExecute(Sender: TObject);
-var LLIst:TStringList;
-    I,j,LCount:integer;
-    LItem:TCodeTraceItem;
-    Lnew:TTreeViewItem;
-    LL:TList;
+var
+  LLIst: TStringList;
+  I, j, LCount: integer;
+  LItem: TCodeTraceItem;
+  Lnew: TTreeViewItem;
+  LL: TList;
 begin
-  LLIst:=TStringList.Create;
+  LLIst := TStringList.Create;
   LLIst.Add('note: DResList_Count=8 DATE=13:06:13.216,');
   LLIst.Add('note: htmlItems_Count=13 DATE=13:06:13.227');
-    LLIst.Add('note: State=,loading DATE=13:06:13.237');
-    LLIst.Add('note: Start=http://kilotor.com/ DATE=13:06:13.424');
+  LLIst.Add('note: State=,loading DATE=13:06:13.237');
+  LLIst.Add('note: Start=http://kilotor.com/ DATE=13:06:13.424');
     //LLIst.Add('not_Found: http://fonts.googleapis.com/css?family=Noto+Sans&subset=cyrillic,latin DATE=13:06:13.426
     // not_Found: https://fonts.googleapis.com/css?family=Lato:400,700,400italic DATE=13:06:13.683
-    LLIst.Add('enter: 1 DATE=13:06:13.896');
-     LLIst.Add('warn: JS=updateOnlineStatus (http://kilotor.com/local/js/verify.js:32:2);DATA=[b_Check_Offline] DATE=13:06:13.897');
-     LLIst.Add('enter: 2 updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:25:25) DATE=13:06:13.896');
+  LLIst.Add('enter: 1 DATE=13:06:13.896');
+  LLIst.Add('warn: JS=updateOnlineStatus (http://kilotor.com/local/js/verify.js:32:2);DATA=[b_Check_Offline] DATE=13:06:13.897');
+  LLIst.Add('enter: 2 updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:25:25) DATE=13:06:13.896');
    { LLIst.Add('warn: L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:32:2);DATA=[b_Check_Offline] DATE=13:06:13.897');
     LLIst.Add('warn: L=checkOfflineStatus (http://kilotor.com/local/js/verify.js:74:32);DATA=[CheckStatus=up] DATE=13:06:13.899');
     }
-     LLIst.Add('note: JS=htmlItems_Count=177 DATE=13:06:13.227');
-    LLIst.Add('exit: updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:78:4);DATA=[f_connect] DATE=13:06:13.900');
-     LLIst.Add('exit: updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:78:4);DATA=[f_connect] DATE=13:06:13.900');
-      LLIst.Add('exit: updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:78:4);DATA=[f_connect] DATE=13:06:13.900');
-    LLIst.Add('note: htmlItems_Count=177 DATE=13:06:13.227');
-   tv_Trace.BeginUpdate;
-   tv_Trace.Content.BeginUpdate;
+  LLIst.Add('note: JS=htmlItems_Count=177 DATE=13:06:13.227');
+  LLIst.Add('exit: updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:78:4);DATA=[f_connect] DATE=13:06:13.900');
+  LLIst.Add('exit: updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:78:4);DATA=[f_connect] DATE=13:06:13.900');
+  LLIst.Add('exit: updateOnlineStatus:L=updateOnlineStatus (http://kilotor.com/local/js/verify.js:78:4);DATA=[f_connect] DATE=13:06:13.900');
+  LLIst.Add('note: htmlItems_Count=177 DATE=13:06:13.227');
+  tv_Trace.BeginUpdate;
+  tv_Trace.Content.BeginUpdate;
   try
-   LCount:=0;
-   i:=0;
-   for j :=1 to 22 do
+    LCount := 0;
+    I := 0;
+    for j := 1 to 22 do
     begin
-      i:=0;
-       while i<LList.Count do
-        begin
-          LItem:=TCodeTraceItem.CreateFromString(LLIst.Strings[i]);
-          if LItem.IsEmpty=false then
-              try
-                LL:=LTList.LockList;
-                LL.Add(LItem);
-                Inc(LCount);
-               finally
-                LTList.UnlockList;
-              end;
-         Inc(i);
+      I := 0;
+      while I < LLIst.Count do
+      begin
+        LItem := TCodeTraceItem.CreateFromString(LLIst.Strings[I]);
+        if LItem.IsEmpty = false then
+        try
+          LL := LTList.LockList;
+          LL.Add(LItem);
+          Inc(LCount);
+        finally
+          LTList.UnlockList;
         end;
+        Inc(I);
+      end;
     end;
   finally
     LLIst.Free;
@@ -236,142 +238,194 @@ begin
 end;
 
 procedure TCTrForm.actSearchExecute(Sender: TObject);
- var i,j:integer;
-    L_Item:TwCodeTraceViewItem;
-    L_FoundFlag:Boolean;
+var
+  i, j: integer;
+  L_Item: TwCodeTraceViewItem;
+  L_FoundFlag: Boolean;
 begin
- cbe_Find.OnChange(cbe_Find);
- if (F_FindItemIndex>=tv_Trace.GlobalCount-1) then
-    i:=0
- else
-    i:=F_FindItemIndex+1;
+  cbe_Find.OnChange(cbe_Find);
+  if (F_FindItemIndex >= tv_Trace.GlobalCount - 1) then
+    i := 0
+  else
+    i := F_FindItemIndex + 1;
   //
-  L_FoundFlag:=False;
-  while i<tv_Trace.GlobalCount do
+  L_FoundFlag := False;
+  while i < tv_Trace.GlobalCount do
   begin
-   if tv_Trace.ItemByGlobalIndex(i) is TwCodeTraceViewItem then
+    if tv_Trace.ItemByGlobalIndex(i) is TwCodeTraceViewItem then
     begin
-       L_Item:=TwCodeTraceViewItem(tv_Trace.ItemByGlobalIndex(i));
+      L_Item := TwCodeTraceViewItem(tv_Trace.ItemByGlobalIndex(i));
+      begin
+        if Pos(cbe_Find.Text, L_Item.Text) > 0 then
         begin
-          if Pos(cbe_Find.Text,L_Item.Text)>0 then
-             begin
-               F_FindItemIndex:=i;
-               actScroll.Checked:=False;
-               L_Item.Select;
-               L_FoundFlag:=True;
-               j:=cbe_Find.Items.IndexOf(cbe_Find.Text);
-               if j<0 then
-                  cbe_Find.Items.Append(cbe_Find.Text);
-               Break;
-             end;
+          F_FindItemIndex := i;
+          actScroll.Checked := False;
+          L_Item.Select;
+          L_FoundFlag := True;
+          j := cbe_Find.Items.IndexOf(cbe_Find.Text);
+          if j < 0 then
+            cbe_Find.Items.Append(cbe_Find.Text);
+          Break;
         end;
+      end;
     end;
-   Inc(i);
+    Inc(i);
   end;
- if not(L_FoundFlag) then
-     TDialogService.MessageDialog('<'+cbe_Find.Text+'> Not Found!',TMsgDlgType.mtWarning,[TMsgDlgBtn.mbOK],TMsgDlgBtn.mbOK,0,nil);
+  if not (L_FoundFlag) then
+    TDialogService.MessageDialog('<' + cbe_Find.Text + '> Not Found!',
+      TMsgDlgType.mtWarning, [TMsgDlgBtn.mbOK], TMsgDlgBtn.mbOK, 0, nil);
 end;
 
 procedure TCTrForm.actSearchUpdate(Sender: TObject);
 begin
- TAction(Sender).Enabled:=(Trim(cbe_Find.Text)<>'');
+  TAction(Sender).Enabled := (Trim(cbe_Find.Text) <> '');
 end;
 
-function TCTrForm.AddCTItem(ATrView: TTreeView; const AItem:TCodeTraceItem): TTreeViewItem;
+function TCTrForm.AddCTItem(ATrView: TTreeView; const AItem: TCodeTraceItem):
+  TTreeViewItem;
  ///
- var L_New:TTreeViewItem;
+var
+  L_New: TTreeViewItem;
+  i: Integer;
+  j: Integer;
 begin
-  Result:=nil;
-  if (aItem.IsEmpty) then
-       exit
+  Result := nil;
+  if (AItem.IsEmpty) then
+    exit
   else
-   begin
-     if AtrView.Count<=0 then FLastItem:=nil;
-      L_New:=TwCodeTraceViewItem.Create(ATrView.Owner,ATrView,FLastItem,aItem);
-      if Pos('app: ',L_New.Text)=1 then
-         begin
-             L_New.StyledSettings:=L_New.StyledSettings-[TStyledSetting.FontColor];
-             L_New.TextSettings.FontColor:=TAlphaColorRec.Green;
-         end
-      else
-        if Pos(' JS=',L_New.Text)>0 then
-           begin
-             L_New.StyledSettings:=L_New.StyledSettings-[TStyledSetting.FontColor];
-             L_New.TextSettings.FontColor:=TAlphaColorRec.Red;
-          end;
+  begin
 
-      Result:=L_New;
-      FLastItem:=Result;
-      L_New.IsExpanded:=true;
-   end;
+    if ATrView.Count <= 0 then
+    begin
+      FLastItem := nil;
+
+    end
+    else
+    begin
+
+      for i := 0 to ATrView.Count - 1 do
+      begin
+        if Pos(AItem.TraceID, ATrView.Items[i].Text) > 1 then
+        begin
+          FLastItem := GetLastChild(ATrView.Items[i]);
+
+        end;
+
+      end;
+    end;
+
+    L_New := TwCodeTraceViewItem.Create(ATrView.Owner, ATrView, FLastItem, AItem);
+    if Pos('app: ', L_New.Text) = 1 then
+    begin
+      L_New.StyledSettings := L_New.StyledSettings - [TStyledSetting.FontColor];
+      L_New.TextSettings.FontColor := TAlphaColorRec.Green;
+    end
+    else if Pos(' JS=', L_New.Text) > 0 then
+    begin
+      L_New.StyledSettings := L_New.StyledSettings - [TStyledSetting.FontColor];
+      L_New.TextSettings.FontColor := TAlphaColorRec.Red;
+    end;
+
+    Result := L_New;
+    FLastItem := Result;
+    L_New.IsExpanded := true;
+  end;
 end;
 
 procedure TCTrForm.cb_OnlyJSClick(Sender: TObject);
-var L_Item:TwCodeTraceViewItem;
-    i:integer;
+var
+  L_Item: TwCodeTraceViewItem;
+  i: integer;
 begin
- i:=0;
- while i<tv_Trace.GlobalCount do
+  i := 0;
+  while i < tv_Trace.GlobalCount do
   begin
-   if tv_Trace.ItemByGlobalIndex(i) is TwCodeTraceViewItem then
+    if tv_Trace.ItemByGlobalIndex(i) is TwCodeTraceViewItem then
     begin
-       L_Item:=TwCodeTraceViewItem(tv_Trace.ItemByGlobalIndex(i));
-       if (actOnlyJS.Checked=true) then
-        begin
-          if Pos(' JS=',L_Item.Text)>0 then
-             L_Item.Visible:=true
-          else L_Item.Visible:=false;
-        end
-       else L_Item.Visible:=true;
+      L_Item := TwCodeTraceViewItem(tv_Trace.ItemByGlobalIndex(i));
+      if (actOnlyJS.Checked = true) then
+      begin
+        if Pos(' JS=', L_Item.Text) > 0 then
+          L_Item.Visible := true
+        else
+          L_Item.Visible := false;
+      end
+      else
+        L_Item.Visible := true;
     end;
-   Inc(i);
+    Inc(i);
   end;
+end;
+
+function TCTrForm.CheckParentItemFromTraceId(ATrView: TTreeView; aTraceId:
+  string): Boolean;
+var
+  i: integer;
+begin
+  Result := False;
+
+  for i := 0 to ATrView.Count - 1 do
+  begin
+    if Pos(aTraceId, ATrView.Items[i].Text) > 1 then
+    begin
+
+      Result := True;
+      Exit;
+    end;
+
+  end;
+
 end;
 
 procedure TCTrForm.cbe_FindChange(Sender: TObject);
 begin
-  if (chkFinfFromCurrPos.IsChecked=True) and (Assigned(tv_Trace.Selected)) then
-     F_FindItemIndex:=tv_Trace.Selected.GlobalIndex
-  else F_FindItemIndex:=0;
+  if (chkFinfFromCurrPos.IsChecked = True) and (Assigned(tv_Trace.Selected)) then
+    F_FindItemIndex := tv_Trace.Selected.GlobalIndex
+  else
+    F_FindItemIndex := 0;
 end;
 
 procedure TCTrForm.FillComboBox;
-var i,LCount:integer;
-    LItem:TListBoxItem;
+var
+  i, LCount: integer;
+  LItem: TListBoxItem;
 begin
   ComboBox1.Items.Clear;
-  LCount:=ct_FillCommandsList(1,ComboBox1.Items);
-  if LCount<=0 then exit;
-  i:=0;
-  while i<ComboBox1.Items.Count do
-   begin
-    if i<ComboBox1.Images.Count then
-     ComboBox1.ListItems[i].ImageIndex:=i
+  LCount := ct_FillCommandsList(1, ComboBox1.Items);
+  if LCount <= 0 then
+    exit;
+  i := 0;
+  while i < ComboBox1.Items.Count do
+  begin
+    if i < ComboBox1.Images.Count then
+      ComboBox1.ListItems[i].ImageIndex := i
     else
-     ComboBox1.ListItems[i].ImageIndex:=0;
-     Inc(i);
-   end;
+      ComboBox1.ListItems[i].ImageIndex := 0;
+    Inc(i);
+  end;
 end;
 
 procedure TCTrForm.FormCreate(Sender: TObject);
-var LRect:TRect;
-    LS:string;
-   L_port:integer;
+var
+  LRect: TRect;
+  LS: string;
+  L_port: integer;
 begin
-  F_FindItemIndex:=0;
-  lbl_defPort.Text:='default port: '+IntToStr(def_portNum);
-  LRect.Left:=-1;
-  LRect:=appEnv.Ini.ReadRect('SETTINGS','PosRECT',LRect);
-  if Lrect.Left<>-1 then
-   SetBounds(Lrect);
-  Caption:=appEnv.Params.CaptionLeftPart+' v.'+appEnv.ServiceInfo.GetAppVersionString(2);
+  F_FindItemIndex := 0;
+  lbl_defPort.Text := 'default port: ' + IntToStr(def_portNum);
+  LRect.Left := -1;
+  LRect := appEnv.Ini.ReadRect('SETTINGS', 'PosRECT', LRect);
+  if LRect.Left <> -1 then
+    SetBounds(LRect);
+  Caption := appEnv.Params.CaptionLeftPart + ' v.' + appEnv.ServiceInfo.GetAppVersionString
+    (2);
   ///
-  LT_ApplyIndex:=-1;
-  LTList:=TThreadList.Create;
+  LT_ApplyIndex := -1;
+  LTList := TThreadList.Create;
   ///
-  L_port:=wCode.Socket.UdpClient.Port;
-  if wCode.Socket.UdpClient.Tag<>1 then
-     L_port:=appEnv.Ini.ReadInteger('SETTINGS','port',L_port);
+  L_port := wCode.Socket.UdpClient.Port;
+  if wCode.Socket.UdpClient.Tag <> 1 then
+    L_port := appEnv.Ini.ReadInteger('SETTINGS', 'port', L_port);
   ///
   SetClientPort(L_port);
   ///
@@ -379,256 +433,295 @@ begin
   tv_Trace.Clear;
   ///
   FillComboBox;
-  nmbrbx_port.Value:=L_port;
+  nmbrbx_port.Value := L_port;
 end;
 
 procedure TCTrForm.FormDestroy(Sender: TObject);
-var LL:TList;
-    i:integer;
-    LRect:TRect;
-    L_port:integer;
+var
+  LL: TList;
+  i: integer;
+  LRect: TRect;
+  L_port: integer;
 begin
-   try
-    L_port:=Trunc(nmbrbx_port.Value);
-    except L_port:=0;
-   end;
-   if L_port<=0 then
-      L_port:=def_portNum;
-   appEnv.Ini.WriteInteger('SETTINGS','port',L_port);
-   LRect:=GetBounds;
-   if LRect.Left<>-1 then
+  try
+    L_port := Trunc(nmbrbx_port.Value);
+  except
+    L_port := 0;
+  end;
+  if L_port <= 0 then
+    L_port := def_portNum;
+  appEnv.Ini.WriteInteger('SETTINGS', 'port', L_port);
+  LRect := GetBounds;
+  if LRect.Left <> -1 then
+  begin
+    appEnv.Ini.WriteRect('SETTINGS', 'PosRECT', LRect);
+  end;
+  appEnv.Ini.Save;
+  try
+    LL := LTList.LockList;
+    i := 0;
+    while i < LL.Count do
     begin
-      appEnv.Ini.WriteRect('SETTINGS','PosRECT',LRect);
+      TObject(LL.Items[i]).Free;
+      Inc(i);
     end;
-   appEnv.Ini.Save;
-   try
-    LL:=LTList.LockList;
-    i:=0;
-    while i<LL.Count do
-     begin
-       TObject(LL.Items[i]).Free;
-       Inc(i);
-     end;
   finally
     LTList.UnlockList;
   end;
   LTList.Free;
 end;
 
-procedure TCTrForm.IdUDPServer1UDPRead(AThread: TIdUDPListenerThread;
-  const AData: TIdBytes; ABinding: TIdSocketHandle);
-var i:Integer;
-      s:String;
-      LItem:TCodeTraceItem;
-      LL:TList;
+function TCTrForm.GetLastChild(Item: TTreeViewItem): TTreeViewItem;
+begin
+  if (Item.Count > 0) then
+    Result := GetLastChild(Item.Items[Item.Count - 1])
+  else
+    Result := Item;
+end;
+
+procedure TCTrForm.IdUDPServer1UDPRead(AThread: TIdUDPListenerThread; const
+  AData: TIdBytes; ABinding: TIdSocketHandle);
+var
+  i: Integer;
+  s: string;
+  LItem: TCodeTraceItem;
+  LL: TList;
 begin
   s := '';
   try
-    s:=BytesToString(AData,IndyTextEncoding(encUTF8));
-    if s<>'' then
-     begin
-       LItem:=TCodeTraceItem.CreateFromString(s);
+    s := BytesToString(AData, IndyTextEncoding(encUTF8));
+    if s <> '' then
+    begin
+      LItem := TCodeTraceItem.CreateFromString(s);
       { if LItem.CommandName='exclam:' then
           i:=i;
         }
-       if LItem.IsEmpty=false then
-         try
-            LL:=LTList.LockList;
-            LL.Add(LItem);
-          finally
-           LTList.UnlockList;
-         end;
-     end;
+      if LItem.IsEmpty = false then
+      try
+        LL := LTList.LockList;
+        LL.Add(LItem);
+      finally
+        LTList.UnlockList;
+      end;
+    end;
   finally
   end;
 end;
 
 procedure TCTrForm.nmbrbx_portExit(Sender: TObject);
-var LPort:integer;
+var
+  LPort: integer;
 begin
- if (nmbrbx_port.Text='') or (nmbrbx_port.Value<1) then
-    nmbrbx_port.Value:=def_portNum;
-  LPort:=Trunc(nmbrbx_port.Value);
+  if (nmbrbx_port.Text = '') or (nmbrbx_port.Value < 1) then
+    nmbrbx_port.Value := def_portNum;
+  LPort := Trunc(nmbrbx_port.Value);
   // if (Trunc(nmbrbx_port.Value)<>wCode.Socket.UdpClient.Port) then
-  SetClientPort(Lport);
+  SetClientPort(LPort);
   ///
-  nmbrbx_port.Value:=wCode.Socket.UdpClient.Port;
+  nmbrbx_port.Value := wCode.Socket.UdpClient.Port;
 end;
 
-function TCTrForm.SetClientPort(aPort:integer): Boolean;
-var i:integer;
+function TCTrForm.SetClientPort(aPort: integer): Boolean;
+var
+  i: integer;
 begin
- Result:=false;
- if aPort>0 then
-    try
-     wCode.ResetSocket('',aPort);
-     Result:=true;
-    except on E:Exception do
-     MessageDlg('TCTrForm.SetClientPort:  '+E.ClassName+' : '+E.Message,TMsgDlgType.mtError,
-     [TMsgDlgBtn.mbOk],0);
-   end;
+  Result := false;
+  if aPort > 0 then
+  try
+    wCode.ResetSocket('', aPort);
+    Result := true;
+  except
+    on E: Exception do
+      MessageDlg('TCTrForm.SetClientPort:  ' + E.ClassName + ' : ' + E.Message,
+        TMsgDlgType.mtError, [TMsgDlgBtn.mbOk], 0);
+  end;
   if Result then
-   try
-    Result:=false;
-    IdUDPServer1.Active:=False;
-    IdUDPServer1.DefaultPort:=aPort;
+  try
+    Result := false;
+    IdUDPServer1.Active := False;
+    IdUDPServer1.DefaultPort := aPort;
    // IdUDPServer1.Bindings.Items[0].IP:=
-    if IdUDPServer1.Bindings.Count>0 then
-     for i:=0 to IdUDPServer1.Bindings.Count-1 do
+    if IdUDPServer1.Bindings.Count > 0 then
+      for i := 0 to IdUDPServer1.Bindings.Count - 1 do
       begin
-       IdUDPServer1.Bindings.Items[i].Port:= aPort;
+        IdUDPServer1.Bindings.Items[i].Port := aPort;
       end
     else
-      IdUDPServer1.Bindings.Add.Port:=aPort;
+      IdUDPServer1.Bindings.Add.Port := aPort;
     ///
-    IdUDPServer1.Active:=true;
-     except on E:Exception do
-      MessageDlg('TCTrForm.SetClientPort UDPServer1: '+E.ClassName+' : '+E.Message,TMsgDlgType.mtError,
-      [TMsgDlgBtn.mbOk],0);
-   end;
+    IdUDPServer1.Active := true;
+  except
+    on E: Exception do
+      MessageDlg('TCTrForm.SetClientPort UDPServer1: ' + E.ClassName + ' : ' + E.Message,
+        TMsgDlgType.mtError, [TMsgDlgBtn.mbOk], 0);
+  end;
 end;
 
 procedure TCTrForm.tbcDirectChange(Sender: TObject);
 begin
   case tbcDirect.TabIndex of
-  0: begin
-       actCopy.Enabled:=true;
-       actCopyData.Enabled:=true;
-       actOnlyJS.Enabled:=true;
-       actHTest.Enabled:=true;
-       actSearch.Enabled:=true;
-     end;
-  1: begin
-       actCopy.Enabled:=false;
-       actCopyData.Enabled:=false;
-       actOnlyJS.Enabled:=false;
-       actHTest.Enabled:=false;
-       actSearch.Enabled:=false;
-     end;
+    0:
+      begin
+        actCopy.Enabled := true;
+        actCopyData.Enabled := true;
+        actOnlyJS.Enabled := true;
+        actHTest.Enabled := true;
+        actSearch.Enabled := true;
+      end;
+    1:
+      begin
+        actCopy.Enabled := false;
+        actCopyData.Enabled := false;
+        actOnlyJS.Enabled := false;
+        actHTest.Enabled := false;
+        actSearch.Enabled := false;
+      end;
   end;
 end;
 
 procedure TCTrForm.Timer1Timer(Sender: TObject);
- var LL:TList;
-    i,iprev:integer;
-    LItem:TCodeTraceItem;
-    LS:string;
+var
+  LL: TList;
+  i, iprev: integer;
+  LItem: TCodeTraceItem;
+  LS: string;
+  LParentItem: TCodeTraceItem;
 begin
   try
-    LL:=LTList.LockList;
+    LL := LTList.LockList;
      ///
-     i:=LT_ApplyIndex+1;
-     iPrev:=i;
-     while i<LL.Count do
-       begin
-         LItem:=TCodeTraceItem(LL.Items[i]);
-         if LItem.CommandName='clear:' then
-          begin
-            tv_Trace.Clear;
-            mmoData.Lines.Clear;
-          end
-         else
-          if LItem.CommandName='data:' then
-           try
-            mmoData.BeginUpdate;
-             mmoData.Lines.Add('---'+LItem.GetCommandParams+'>'+TimeToStr(LItem.DTime)+'---');
+    i := LT_ApplyIndex + 1;
+    iprev := i;
+    while i < LL.Count do
+    begin
+      LItem := TCodeTraceItem(LL.Items[i]);
+      if LItem.CommandName = 'clear:' then
+      begin
+        tv_Trace.Clear;
+        mmoData.Lines.Clear;
+      end
+      else if LItem.CommandName = 'data:' then
+      try
+        mmoData.BeginUpdate;
+        mmoData.Lines.Add('---' + LItem.GetCommandParams + '>' + TimeToStr(LItem.DTime)
+          + '---');
             // mmoData.Lines.Add(LItem.GetDataPart(false));
-             if actScroll.Checked=true then
-                mmoData.GoToTextEnd;
-            finally
-            mmoData.EndUpdate;
-           end
-          else
-            try
-              tv_Trace.BeginUpdate;
+        if actScroll.Checked = true then
+          mmoData.GoToTextEnd;
+      finally
+        mmoData.EndUpdate;
+      end
+      else
+      try
+        tv_Trace.BeginUpdate;
              // tv_Trace.Content.BeginUpdate;
-              AddCTItem(tv_Trace,LItem);
-            finally
+        if LItem.TraceID = '' then
+        begin
+
+          LItem.TraceID := 'Default';
+        end;
+        if not CheckParentItemFromTraceId(tv_Trace, LItem.TraceID) then
+        begin
+
+          LParentItem := TCodeTraceItem.Create('traceid:', LItem.TraceID, LItem.TraceID);
+          FLastItem := nil;
+          FLastItem := AddCTItem(tv_Trace, LParentItem);
+        end;
+        AddCTItem(tv_Trace, LItem);
+      finally
              // tv_Trace.Content.EndUpdate;
-              tv_Trace.EndUpdate;
-            end;
-         Inc(i);
-       end;
-     LT_ApplyIndex:=LL.Count-1;
-     Timer_Idle.Enabled:=(actScroll.Checked=true) and (iPrev=i)
-                                                 and (i>2);
+        tv_Trace.EndUpdate;
+      end;
+      Inc(i);
+    end;
+    LT_ApplyIndex := LL.Count - 1;
+    Timer_Idle.Enabled := (actScroll.Checked = true) and (iprev = i) and (i > 2);
      ///
-     finally
+  finally
     LTList.UnlockList;
   end;
 end;
 
-
 procedure TCTrForm.Timer_IdleTimer(Sender: TObject);
 begin
-  Timer_Idle.Enabled:=false;
-  if (tv_Trace.Count>0) and (Assigned(FLastItem)) then
-    begin
-     tv_Trace.Selected:=FLastItem;
-    end;
+  Timer_Idle.Enabled := false;
+  if (tv_Trace.Count > 0) and (Assigned(FLastItem)) then
+  begin
+    tv_Trace.Selected := FLastItem;
+  end;
 end;
 
 { TwCodeTraceReportItem }
 
-constructor TwCodeTraceViewItem.Create(AOwner: TComponent; ATreeView:TTreeView; ALastItem:TTreeViewItem; const AData:TCodeTraceItem);
-var L_List:TCustomImageList;
-    L_LastItem:TwCodeTraceViewItem;
-    LS:string;
+constructor TwCodeTraceViewItem.Create(AOwner: TComponent; ATreeView: TTreeView;
+  ALastItem: TTreeViewItem; const AData: TCodeTraceItem);
+var
+  L_List: TCustomImageList;
+  L_LastItem: TwCodeTraceViewItem;
+  LS: string;
+  LParentItem: TCodeTraceItem;
 begin
   inherited Create(AOwner);
-  L_LastItem:=nil;
- { if Pos('htmlItems_Count=177',AData.MessData)>0 then
-    begin
-      L_LastItem:=nil;
-    end;
-    }
-  FItem:=TCodeTraceItem.CreateFrom(AData);
-  if (ALastItem<>nil) and (ALastItem is TwCodeTraceViewItem) then
-   begin
-     L_LastItem:=TwCodeTraceViewItem(ALastItem);
-     LS:=L_LastItem.FItem.MessData;
+
+  L_LastItem := nil;
+
+  FItem := TCodeTraceItem.CreateFrom(AData);
+  if (ALastItem <> nil) and (ALastItem is TwCodeTraceViewItem) then
+  begin
+    L_LastItem := TwCodeTraceViewItem(ALastItem);
+    LS := L_LastItem.FItem.MessData;
      ///
-     if (FItem.CommandRegime<>2) and (L_LastItem.DataItem.CommandRegime=1) then
-       begin
-         if (ALastItem<>nil) then
-                 Parent:=ALastItem
-         else
-              Parent:=ATreeView;
-       end
-     else
-       if (FItem.CommandRegime=2) and (L_LastItem.DataItem.CommandRegime<>1) then
-        begin
-         if (L_LastItem.ParentItem<>nil) and (L_LastItem.ParentItem is TTreeViewItem) then
-           begin
-             if (L_LastItem.ParentItem.ParentItem<>nil) and (L_LastItem.ParentItem.ParentItem is TTreeViewItem) then
-                 Parent:=L_LastItem.ParentItem.ParentItem
-             else Parent:=ATreeView;
-           end
-         else Parent:=ATreeView
-        end
+    if (FItem.CommandRegime <> 2) and ((L_LastItem.DataItem.CommandRegime = 1)
+      or (L_LastItem.DataItem.CommandRegime = 17)) then
+    begin
+
+      begin
+
+        if (ALastItem <> nil) then
+          Parent := ALastItem
+        else
+          Parent := ATreeView;
+      end;
+    end
+    else if (FItem.CommandRegime = 2) and (L_LastItem.DataItem.CommandRegime <> 1) then
+    begin
+      if (L_LastItem.ParentItem <> nil) and (L_LastItem.ParentItem is TTreeViewItem) then
+      begin
+        if (L_LastItem.ParentItem.ParentItem <> nil) and (L_LastItem.ParentItem.ParentItem
+          is TTreeViewItem) then
+          Parent := L_LastItem.ParentItem.ParentItem
+        else
+          Parent := ATreeView;
+      end
       else
-       if (L_LastItem.ParentItem<>nil) and (L_LastItem.ParentItem is TTreeViewItem) then
-             Parent:=L_LastItem.ParentItem
-         else Parent:=ATreeView;
-   end
+        Parent := ATreeView
+    end
+    else if (L_LastItem.ParentItem <> nil) and (L_LastItem.ParentItem is
+      TTreeViewItem) then
+      Parent := L_LastItem.ParentItem
+    else
+      Parent := ATreeView;
+  end
   else
-     Parent:=ATreeView;
+    Parent := ATreeView;
   ///
-  L_List:=ATreeView.Images;
-  if (Assigned(L_List)) and (FItem.CommandRegime>=0) and (FItem.CommandRegime<L_List.Count) then
-     ImageIndex:=FItem.CommandRegime;
+  L_List := ATreeView.Images;
+  if (Assigned(L_List)) and (FItem.CommandRegime >= 0) and (FItem.CommandRegime
+    < L_List.Count) then
+    ImageIndex := FItem.CommandRegime;
   ///
-  Text:=FItem.DataToString(1);
+  Text := FItem.DataToString(1);
 end;
 
 destructor TwCodeTraceViewItem.Destroy;
 begin
   if Assigned(FItem) then
-   begin
-     FItem.Free;
-     FItem:=nil;
-   end;
+  begin
+    FItem.Free;
+    FItem := nil;
+  end;
   inherited;
 end;
 
 end.
+
