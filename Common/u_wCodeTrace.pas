@@ -216,7 +216,7 @@ begin
   case agetDataRegime of
     1:
       Result := Concat(CommandName, ' ', MessData, ' TIME=', TimeToStr(DTime,
-        FormatSettings));
+        FormatSettings), ' -!', TraceID);
     2:
       Result := Concat(CommandName, '=', MessData);
   else
